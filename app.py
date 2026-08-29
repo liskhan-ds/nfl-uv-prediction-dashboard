@@ -7,13 +7,13 @@ import plotly.graph_objects as go
 import os
 import requests
 import textwrap
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # -----------------------------------------------------------------------------
 # 1. 페이지 설정 및 상단 탭 네비게이션
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="🏈 NFL AI 승부예측",
+    page_title="🏈 NFL AI 승부예측 (2026-27 시즌)",
     page_icon="🏈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -58,8 +58,8 @@ with nav_col5:
 st.divider()
 
 # 메인 타이틀 및 스펙 설명
-st.title("🏈 NFL AI 승부예측 (by 11.0 WUV predictor)")
-st.caption("11.0 WUV 기준 (QB 3.30 UV + 공격 2.75 UV + 수비 4.18 UV + 키커 0.77 UV) | 라인업 (선발 QB + O-Line/스킬유닛 + 수비프런트/DB + 키커) | 홈 어드밴티지(+0.25 UV)")
+st.title("🏈 NFL AI 승부예측 (2026-27 시즌 by 11.0 WUV predictor)")
+st.caption("2026-27 NFL 정규시즌 (2026년 9월 10일 개막) | 11.0 WUV 기준 (QB 3.30 UV + 공격 2.75 UV + 수비 4.18 UV + 키커 0.77 UV) | 홈 어드밴티지(+0.25 UV)")
 
 # Custom CSS
 st.markdown(textwrap.dedent("""
@@ -145,21 +145,21 @@ st.markdown(textwrap.dedent("""
         align-items: center;
         justify-content: center;
     }
-    .live-badge {
-        background-color: #10b981;
+    .season-badge {
+        background-color: #0284c7;
         color: white;
-        font-size: 0.75rem;
+        font-size: 0.82rem;
         font-weight: bold;
-        padding: 4px 10px;
+        padding: 6px 12px;
         border-radius: 6px;
         display: inline-block;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
     }
 </style>
 """), unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. NFL 32개 팀 정적 지표 & 트라이코드 맵핑 (11.0 WUV 스케일 엔진)
+# 2. NFL 32개 팀 정적 지표 & 트라이코드 맵핑 (2026-27 시즌 11.0 WUV 스케일)
 # -----------------------------------------------------------------------------
 TRI_TO_KOR = {
     "KC": "캔ザ스시티 치프스", "BUF": "버팔로 빌스", "BAL": "볼티모어 레이븐스",
@@ -406,14 +406,6 @@ TEAMS_DATA = {
 # 3. 11.0 WUV 예측 엔진 연동 및 승률/스코어 계산
 # -----------------------------------------------------------------------------
 def calculate_team_wuv(team_name):
-    """
-    11.0 WUV 스케일 엔진:
-    - QB Unit: Weight 30%, Max 3.30 UV
-    - Offense Unit (Skill & O-Line): Weight 25%, Max 2.75 UV
-    - Defense Unit (Pass Rush & D-Drive): Weight 38%, Max 4.18 UV
-    - Kicker Unit (50+ FG%): Weight 7%, Max 0.77 UV
-    Total WUV Sum = 3.30 + 2.75 + 4.18 + 0.77 = 11.00 WUV
-    """
     if team_name not in TEAMS_DATA:
         qb_uv = 1.85
         off_uv = 1.40
@@ -525,11 +517,11 @@ def predict_matchup(home_team, away_team):
     }
 
 # -----------------------------------------------------------------------------
-# 4. ESPN API 연동 & 경기 일정 로드 (DB / API / Fallback)
+# 4. ESPN API 연동 (2026-27 정규시즌 1~18주차 공식 일정 로드)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=600)
-def fetch_espn_nfl_schedule():
-    url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+def fetch_espn_nfl_schedule(seasontype=2, week=1):
+    url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype={seasontype}&week={week}"
     try:
         res = requests.get(url, timeout=5)
         if res.status_code == 200:
@@ -551,7 +543,6 @@ def fetch_espn_nfl_schedule():
                     home_tri = home_comp["team"].get("abbreviation", "")
                     away_tri = away_comp["team"].get("abbreviation", "")
                     
-                    # 맵핑 변환
                     home_kor = TRI_TO_KOR.get(home_tri, home_raw_name)
                     away_kor = TRI_TO_KOR.get(away_tri, away_raw_name)
                     
@@ -562,15 +553,12 @@ def fetch_espn_nfl_schedule():
                     away_score = away_comp.get("score", "")
                     
                     actual_winner = ""
-                    if status_type in ["STATUS_FINAL", "STATUS_POSTPONED"]:
-                        if status_type == "STATUS_POSTPONED":
-                            actual_winner = "Postponed"
-                        elif home_score and away_score:
-                            hs = int(home_score)
-                            aws = int(away_score)
-                            if hs > aws: actual_winner = home_kor
-                            elif aws > hs: actual_winner = away_kor
-                            else: actual_winner = "Tie"
+                    if status_type == "STATUS_FINAL" and home_score and away_score:
+                        hs = int(home_score)
+                        aws = int(away_score)
+                        if hs > aws: actual_winner = home_kor
+                        elif aws > hs: actual_winner = away_kor
+                        else: actual_winner = "Tie"
 
                     games.append({
                         "date": date_str,
@@ -591,72 +579,77 @@ def fetch_espn_nfl_schedule():
     except Exception:
         pass
 
-    # Fallback Sample Data (NFL 주차 매치업 16경기)
+    # Fallback Sample Data (2026-27 정규시즌 Week 1)
     sample_games = [
-        {"date": "2026-09-10", "home_team": "캔ザ스시티 치프스", "visit_team": "버팔로 빌스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png", "home_score": "27", "visit_score": "24", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "캔ザ스시티 치프스"},
-        {"date": "2026-09-10", "home_team": "볼티모어 레이븐스", "visit_team": "신시내티 벵갈스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png", "home_score": "31", "visit_score": "28", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "볼티모어 레이븐스"},
-        {"date": "2026-09-13", "home_team": "샌프란시스코 49어스", "visit_team": "디트로이트 라이온스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/det.png", "home_score": "24", "visit_score": "21", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "샌프란시스코 49어스"},
-        {"date": "2026-09-13", "home_team": "필라델피아 이글스", "visit_team": "달라스 카우보이스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png", "home_score": "28", "visit_score": "20", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "필라델피아 이글스"},
-        {"date": "2026-09-13", "home_team": "휴스턴 텍산스", "visit_team": "인디애나폴리스 콜츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png", "home_score": "23", "visit_score": "17", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "휴스턴 텍산스"},
-        {"date": "2026-09-13", "home_team": "그린베이 패커스", "visit_team": "미네소타 바이킹스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/min.png", "home_score": "24", "visit_score": "17", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "그린베이 패커스"},
-        {"date": "2026-09-13", "home_team": "로스앤젤레스 램스", "visit_team": "시애틀 시호크스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png", "home_score": "26", "visit_score": "23", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "로스앤젤레스 램스"},
-        {"date": "2026-09-13", "home_team": "로스앤젤레스 차저스", "visit_team": "라스베이거스 레이더스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png", "home_score": "22", "visit_score": "16", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "로스앤젤레스 차저스"},
-        {"date": "2026-09-13", "home_team": "애틀랜타 팰컨스", "visit_team": "뉴올리언스 세인츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/no.png", "home_score": "20", "visit_score": "17", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "애틀랜타 팰컨스"},
-        {"date": "2026-09-13", "home_team": "피츠버그 스틸러스", "visit_team": "클리블랜드 브라운스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png", "home_score": "19", "visit_score": "13", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "피츠버그 스틸러스"},
-        {"date": "2026-09-13", "home_team": "마이애미 돌핀스", "visit_team": "뉴욕 제츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png", "home_score": "27", "visit_score": "20", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "마이애미 돌핀스"},
-        {"date": "2026-09-13", "home_team": "탬파베이 버커니어스", "visit_team": "캐롤라이나 팬서스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/car.png", "home_score": "30", "visit_score": "14", "status_type": "STATUS_FINAL", "status_detail": "Final", "actual_winner": "탬파베이 버커니어스"},
-        {"date": "2026-09-14", "home_team": "시카고 베어스", "visit_team": "애리조나 카디널스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Mon 8:15 PM", "actual_winner": ""},
-        {"date": "2026-09-14", "home_team": "워싱턴 커맨더스", "visit_team": "뉴욕 자이언츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/was.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Mon 8:15 PM", "actual_winner": ""},
-        {"date": "2026-09-14", "home_team": "덴버 브롱코스", "visit_team": "테네시 타이탄스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/den.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Mon 8:15 PM", "actual_winner": ""},
-        {"date": "2026-09-14", "home_team": "잭슨빌 재규어스", "visit_team": "뉴잉글랜드 패트리어츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Mon 8:15 PM", "actual_winner": ""}
+        {"date": "2026-09-10", "home_team": "시애틀 시호크스", "visit_team": "뉴잉글랜드 패트리어츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Thu 8:20 PM", "actual_winner": ""},
+        {"date": "2026-09-11", "home_team": "로스앤젤레스 램스", "visit_team": "샌프란시스코 49어스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Fri 8:15 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "신시내티 벵갈스", "visit_team": "탬파베이 버커니어스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 1:00 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "디트로이트 라이온스", "visit_team": "뉴올리언스 세인츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/det.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/no.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 1:00 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "테네시 타이탄스", "visit_team": "뉴욕 제츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 1:00 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "인디애나폴리스 콜츠", "visit_team": "마이애미 돌핀스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 1:00 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "애틀랜타 팰컨스", "visit_team": "피츠버그 스틸러스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 1:00 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "클리블랜드 브라운스", "visit_team": "달라스 카우보이스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 4:25 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "탬파베이 버커니어스", "visit_team": "워싱턴 커맨더스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/was.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 4:25 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "로스앤젤레스 차저스", "visit_team": "라스베이거스 레이더스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 4:05 PM", "actual_winner": ""},
+        {"date": "2026-09-13", "home_team": "캔ザ스시티 치프스", "visit_team": "볼티모어 레이븐스", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Sun 8:20 PM", "actual_winner": ""},
+        {"date": "2026-09-14", "home_team": "샌프란시스코 49어스", "visit_team": "뉴욕 자이언츠", "home_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png", "visit_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png", "home_score": "", "visit_score": "", "status_type": "STATUS_SCHEDULED", "status_detail": "Mon 8:15 PM", "actual_winner": ""}
     ]
     return pd.DataFrame(sample_games)
 
-def load_predictions():
-    # SQLite 저장소 확인 및 생성
-    if os.path.exists(DB_PATH):
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            df_db = pd.read_sql("SELECT * FROM predictions ORDER BY date ASC", conn)
-            conn.close()
-            if not df_db.empty:
-                return df_db
-        except Exception:
-            pass
+# -----------------------------------------------------------------------------
+# 5. 주차(Week) 및 시즌 선택 UI
+# -----------------------------------------------------------------------------
+st.sidebar.header("⚙️ NFL 2026-27 시즌 옵션")
 
-    df = fetch_espn_nfl_schedule()
-    
-    # 예측 수행 및 컬럼 계산
-    predicted_winners = []
-    home_uvs = []
-    visit_uvs = []
-    is_corrects = []
-    
-    for _, row in df.iterrows():
-        pred = predict_matchup(row['home_team'], row['visit_team'])
-        pw = pred['predicted_winner']
-        predicted_winners.append(pw)
-        home_uvs.append(pred['home_eff_wuv'])
-        visit_uvs.append(pred['away_eff_wuv'])
-        
-        act = row.get('actual_winner', '')
-        if act and act != 'Postponed' and act != 'Tie':
-            is_corrects.append(1 if pw == act else 0)
-        else:
-            is_corrects.append(None)
-            
-    df['predicted_winner'] = predicted_winners
-    df['home_uv'] = home_uvs
-    df['visit_uv'] = visit_uvs
-    df['is_correct'] = is_corrects
-    return df
+season_mode = st.sidebar.radio(
+    "시즌 모드 선택:",
+    ["2026-27 정규시즌 (Regular Season)", "2026 프리시즌 (Preseason)"],
+    index=0
+)
 
-df = load_predictions()
+seasontype_val = 2 if "정규시즌" in season_mode else 1
+
+if seasontype_val == 2:
+    selected_week = st.sidebar.selectbox("정규시즌 주차(Week) 선택:", range(1, 19), index=0)
+else:
+    selected_week = st.sidebar.selectbox("프리시즌 주차(Week) 선택:", range(1, 5), index=3)
+
+df = fetch_espn_nfl_schedule(seasontype=seasontype_val, week=selected_week)
+
+# 예측 정보 추가
+predicted_winners = []
+home_uvs = []
+visit_uvs = []
+is_corrects = []
+
+for _, row in df.iterrows():
+    pred = predict_matchup(row['home_team'], row['visit_team'])
+    pw = pred['predicted_winner']
+    predicted_winners.append(pw)
+    home_uvs.append(pred['home_eff_wuv'])
+    visit_uvs.append(pred['away_eff_wuv'])
+    
+    act = row.get('actual_winner', '')
+    if act and act != 'Postponed' and act != 'Tie':
+        is_corrects.append(1 if pw == act else 0)
+    else:
+        is_corrects.append(None)
+
+df['predicted_winner'] = predicted_winners
+df['home_uv'] = home_uvs
+df['visit_uv'] = visit_uvs
+df['is_correct'] = is_corrects
 
 # -----------------------------------------------------------------------------
-# 5. [상단] 누적 예측 성적표 & 적중률 벤치마크
+# 6. [상단] 누적 예측 성적표 & 2026-27 시즌 상태 알림
 # -----------------------------------------------------------------------------
-st.header("📊 누적 예측 성적표")
+st.header("📊 2026-27 시즌 예측 성적표 & 적중률")
+
+st.markdown("""
+<div class="season-badge">
+    🏈 <b>2026-27 NFL 정규시즌 개막 D-12</b> (2026년 9월 10일 Kickoff!)
+</div>
+""", unsafe_allow_html=True)
 
 stats_df = df[
     (df['actual_winner'] != 'Postponed') & 
@@ -685,56 +678,16 @@ if total_stats > 0:
             st.metric("시스템 검증 상태", "검증 완료 (신계 등급)")
 else:
     with col_acc:
-        st.subheader(f"전체 예측 대상 경기: `{len(df)} 경기`")
-        st.markdown(f"**예측 완료 경기:** {len(df)} 경기 (경기 종료 후 실시간 적중률 집계)")
+        st.subheader(f"2026-27 시즌 Week {selected_week} 예정 경기: `{len(df)} 경기`")
+        st.markdown(f"💡 현재 2026 오프시즌/개막 준비 기간입니다. **2026년 9월 10일 정규시즌 개막 후 경기 진행에 따라 실시간 적중률이 집계됩니다.**")
     with col_track:
-        st.metric("시스템 상태", "실시간 예측 진행 중")
+        st.metric("시즌 상태", f"Week {selected_week} 개막 대기 중")
 
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 6. [중단] 일별 / 주차별 예측 성적표 (6단계 등급 벤치마크)
+# 7. 적중률 벤치마크 (2-Way 표준 1:1 복사)
 # -----------------------------------------------------------------------------
-st.header("📈 주차별 / 일별 예측 성적표")
-
-if not stats_df.empty:
-    daily_stats = stats_df.groupby('date').agg(
-        total_games=('home_team', 'count'), 
-        correct_games=('is_correct', 'sum') 
-    ).reset_index()
-
-    daily_stats['accuracy'] = (daily_stats['correct_games'] / daily_stats['total_games']) * 100
-    
-    def get_bar_color(acc):
-        if acc >= 60: return '#A020F0'
-        elif acc >= 55: return '#FF0000'
-        elif acc >= 52.4: return '#FFA500'
-        elif acc >= 45: return '#1E90FF'
-        elif acc >= 35: return '#008000'
-        else: return '#808080'
-
-    daily_stats['bar_color'] = daily_stats['accuracy'].apply(get_bar_color)
-    daily_stats['label_text'] = daily_stats.apply(
-        lambda x: f"{int(x['correct_games'])}/{int(x['total_games'])}", 
-        axis=1
-    )
-
-    daily_stats_7d = daily_stats.sort_values('date', ascending=True).tail(7)
-
-    base = alt.Chart(daily_stats_7d).encode(x=alt.X('date', title='날짜 / 주차 (NFL)'))
-    bars = base.mark_bar().encode(
-        y=alt.Y('accuracy', title='적중률(%)', scale=alt.Scale(domain=[0, 110])),
-        color=alt.Color('bar_color', scale=None),
-        tooltip=['date', 'accuracy', 'total_games']
-    )
-    text = base.mark_text(align='center', baseline='bottom', dy=-5, fontSize=14, fontWeight='bold').encode(
-        y='accuracy', text='label_text'
-    )
-    st.altair_chart((bars + text).properties(height=320), use_container_width=True)
-else:
-    st.info("💡 예정 경기 예측 완료! (경기가 종료되는 대로 실시간 적중률이 집계됩니다.)")
-
-# 적중률 벤치마크 문구 (2-Way 표준 1:1 복사)
 st.markdown("""
 <div style="text-align: center; padding: 12px; background-color: #f0f2f6; border-radius: 10px; line-height: 1.6;">
     <span style="color: #A020F0;">●</span> <b>신계</b> (60%↑) &nbsp;&nbsp;
@@ -750,22 +703,13 @@ st.markdown("""
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 7. [메인] NFL 주차별 매치업 카드 그리드 (양 팀 선발 QB 매치업, 11.0 WUV 비교, 승리 확률 게이지)
+# 8. [메인] 2026-27 시즌 주차별 NFL 매치업 카드 그리드
 # -----------------------------------------------------------------------------
-st.header("🏈 주차별 NFL 매치업 카드 리포트")
+st.header(f"🏈 2026-27 NFL Week {selected_week} 매치업 카드 리포트")
 
-df['date_dt'] = pd.to_datetime(df['date']).dt.date
-unique_dates = sorted(df['date_dt'].unique(), reverse=False)
-
-if unique_dates:
-    selected_date = st.selectbox("📅 확인하고 싶은 날짜 / 주차 선택:", unique_dates, index=0)
-    filtered_df = df[df['date_dt'] == selected_date].copy().reset_index(drop=True)
-else:
-    filtered_df = df.copy()
-
-if not filtered_df.empty:
+if not df.empty:
     card_cols = st.columns(2)
-    for idx, row in filtered_df.iterrows():
+    for idx, row in df.iterrows():
         col_idx = idx % 2
         with card_cols[col_idx]:
             home = row['home_team']
@@ -779,6 +723,8 @@ if not filtered_df.empty:
             a_score = row.get('visit_score', '')
             status = row.get('status_detail', 'Scheduled')
             
+            score_display = f"<b>{a_score} : {h_score}</b>" if (h_score and a_score) else f"예상 스코어<br><b>{pred['away_exp_pts']} : {pred['home_exp_pts']}</b>"
+            
             st.markdown(f"""
             <div class="match-card">
                 <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: #64748b; margin-bottom: 8px;">
@@ -791,18 +737,16 @@ if not filtered_df.empty:
                         <div class="team-name">{visit}</div>
                         <div style="font-size: 0.78rem; color: #64748b;">(원정)</div>
                         <div class="uv-score">{pred['away_eff_wuv']:.2f} <small style="font-size: 0.7rem;">WUV</small></div>
-                        {f'<div style="font-size:1.4rem; font-weight:bold; margin-top:4px;">{a_score}</div>' if a_score else ''}
                     </div>
                     <div style="text-align: center;">
                         <span class="vs-badge">VS</span>
-                        <div style="font-size: 0.75rem; color: #64748b; margin-top: 6px;">예상 스코어<br><b>{pred['away_exp_pts']} : {pred['home_exp_pts']}</b></div>
+                        <div style="font-size: 0.75rem; color: #64748b; margin-top: 6px;">{score_display}</div>
                     </div>
                     <div class="team-box">
                         <img src="{row.get('home_logo', '')}" class="team-logo" alt="{home}"/>
                         <div class="team-name">{home}</div>
                         <div style="font-size: 0.78rem; color: #64748b;">(홈 +0.25)</div>
                         <div class="uv-score">{pred['home_eff_wuv']:.2f} <small style="font-size: 0.7rem;">WUV</small></div>
-                        {f'<div style="font-size:1.4rem; font-weight:bold; margin-top:4px;">{h_score}</div>' if h_score else ''}
                     </div>
                 </div>
                 <div class="qb-box">
@@ -822,15 +766,15 @@ if not filtered_df.empty:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 8. [하단 상세 탭] 유닛별 UV 비교 테이블 & 공수 밸런스 레이더 차트
+# 9. [하단 상세 탭] 유닛별 UV 비교 테이블 & 공수 밸런스 레이더 차트
 # -----------------------------------------------------------------------------
 st.header("🔍 매치업 상세 분석 (11.0 WUV 세부 유닛 & 공수 밸런스)")
 
-matchup_list = [f"{r['visit_team']} vs {r['home_team']} ({r['date']})" for _, r in filtered_df.iterrows()]
+matchup_list = [f"{r['visit_team']} vs {r['home_team']} ({r['date']})" for _, r in df.iterrows()]
 if matchup_list:
     selected_matchup_str = st.selectbox("분석할 경기를 선택하세요:", matchup_list)
     selected_idx = matchup_list.index(selected_matchup_str)
-    selected_row = filtered_df.iloc[selected_idx]
+    selected_row = df.iloc[selected_idx]
     
     home_team = selected_row['home_team']
     away_team = selected_row['visit_team']
