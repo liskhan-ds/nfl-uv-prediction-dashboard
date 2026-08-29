@@ -8,7 +8,7 @@ import requests
 from datetime import datetime
 
 # -----------------------------------------------------------------------------
-# 1. 설정 및 데이터 로드
+# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 전용)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="🏈 NFL AI 승부예측", page_icon="🏈", layout="wide")
 
@@ -292,8 +292,8 @@ def calculate_team_wuv(team_name):
     return total_wuv
 
 def predict_matchup(home_team, away_team):
-    h_wuv = calculate_team_wuv(home_team) + 0.25 # 홈 어드밴티지 +0.25
-    a_wuv = calculate_team_wuv(away_team)
+    h_wuv = round(calculate_team_wuv(home_team) + 0.25, 2) # 홈 어드밴티지 +0.25
+    a_wuv = round(calculate_team_wuv(away_team), 2)
     
     gap = round(abs(h_wuv - a_wuv), 2)
     predicted_winner = home_team if h_wuv >= a_wuv else away_team
@@ -311,7 +311,7 @@ def load_data():
         except Exception:
             pass
 
-    # ESPN NFL 2026-27 정규시즌 1주차 기본 데이터 로드
+    # 2026-27 NFL 정규시즌 (Regular Season, seasontype=2) 1주차 기본 데이터 로드
     games = [
         {"date": "2026-09-10", "home_team": "시애틀 시호크스", "visit_team": "뉴잉글랜드 패트리어츠", "actual_winner": ""},
         {"date": "2026-09-11", "home_team": "로스앤젤레스 램스", "visit_team": "샌프란시스코 49어스", "actual_winner": ""},
@@ -389,7 +389,7 @@ st.divider()
 
 # 메인 타이틀
 st.title("🏈 NFL AI 승부예측(by WUV predictor)")
-st.caption("11.0 WUV 기준 (QB 3.30 UV + 공격 2.75 UV + 수비 4.18 UV + 키커 0.77 UV) | 야구/라인업 (선발 QB + O-Line/스킬유닛 + 수비프런트/DB + 키커) | 홈 어드밴티지(+0.25 UV)")
+st.caption("2026-27 NFL 정규시즌 전용 | 11.0 WUV 기준 (QB 3.30 UV + 공격 2.75 UV + 수비 4.18 UV + 키커 0.77 UV) | 홈 어드밴티지(+0.25 UV)")
 
 if df.empty:
     st.warning("⚠️ 아직 예측 데이터가 없거나 DB를 불러올 수 없습니다.")
@@ -434,10 +434,10 @@ if total_stats > 0:
             st.metric("시스템 검증 상태", "검증 완료 (신계 등급)")
 else:
     with col_acc:
-        st.subheader(f"전체 예측 대상 경기: `{len(df)} 경기`")
-        st.markdown(f"**예측 완료 경기:** {len(df)} 경기 (경기 종료 후 실시간 적중률 집계)")
+        st.subheader(f"2026-27 정규시즌 대상 경기: `{len(df)} 경기`")
+        st.markdown(f"**예측 완료 경기:** {len(df)} 경기 (2026-27 정규시즌 경기 종료 후 실시간 적중률 집계)")
     with col_track:
-        st.metric("시스템 상태", "실시간 예측 진행 중")
+        st.metric("시스템 상태", "정규시즌 개막 대기 중")
 
 st.markdown("---")
 
@@ -470,7 +470,7 @@ if not stats_df.empty:
 
     daily_stats_7d = daily_stats.sort_values('date', ascending=True).tail(7)
 
-    base = alt.Chart(daily_stats_7d).encode(x=alt.X('date', title='날짜(NFL 현지)'))
+    base = alt.Chart(daily_stats_7d).encode(x=alt.X('date', title='날짜(NFL 정규시즌 현지)'))
     bars = base.mark_bar().encode(
         y=alt.Y('accuracy', title='적중률(%)', scale=alt.Scale(domain=[0, 110])),
         color=alt.Color('bar_color', scale=None),
@@ -481,7 +481,7 @@ if not stats_df.empty:
     )
     st.altair_chart((bars + text).properties(height=350), use_container_width=True)
 else:
-    st.info("💡 예정 경기 예측 완료! (경기가 종료되는 대로 실시간 적중률이 집계됩니다.)")
+    st.info("💡 2026-27 정규시즌 예정 경기 예측 완료! (경기가 종료되는 대로 실시간 적중률이 집계됩니다.)")
 
 st.markdown("""
 <div style="text-align: center; padding: 12px; background-color: #f0f2f6; border-radius: 10px; line-height: 1.6;">
@@ -498,7 +498,7 @@ st.markdown("""
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 3. [하단] 일별 상세 예측 리포트
+# 3. [하단] 일별 상세 예측 리포트 (팀명 + WUV 수치 병기 예: 샌프란시스코 49어스(8.85 WUV))
 # -----------------------------------------------------------------------------
 st.header("📋 일별 상세 예측 리포트")
 
@@ -527,12 +527,21 @@ if not filtered_df.empty:
     else:
         col3.metric("일일 적중률", "-")
 
-    display_df = filtered_df[[
-        'day_no', 'total_no', 'home_team', 'visit_team', 
+    # 팀명(WUV수치) 형태 포맷팅 예시) 샌프란시스코 49어스(8.85 WUV)
+    display_df = filtered_df.copy()
+    display_df['home_team_fmt'] = display_df.apply(
+        lambda r: f"{r['home_team']}({r['home_uv']:.2f} WUV)" if pd.notna(r.get('home_uv')) else r['home_team'], axis=1
+    )
+    display_df['visit_team_fmt'] = display_df.apply(
+        lambda r: f"{r['visit_team']}({r['visit_uv']:.2f} WUV)" if pd.notna(r.get('visit_uv')) else r['visit_team'], axis=1
+    )
+    
+    show_df = display_df[[
+        'day_no', 'total_no', 'home_team_fmt', 'visit_team_fmt', 
         'predicted_winner', 'predicted_gap', 'actual_winner', 'is_correct'
     ]].copy()
     
-    display_df.columns = [
+    show_df.columns = [
         'No.(Day)', 'No.(Total)', '홈 팀', '원정 팀', 
         '예측 승리팀', '예상 격차(uv)', '실제 승리팀', '적중 여부'
     ]
@@ -542,11 +551,11 @@ if not filtered_df.empty:
         if pd.isna(row['적중 여부']) or row['실제 승리팀'] == '': return "⏳ 대기"
         return "✅ 정답" if row['적중 여부'] == 1 else "❌ 오답"
     
-    display_df['적중 여부'] = display_df.apply(mark_ox, axis=1)
-    display_df['예상 격차(uv)'] = display_df['예상 격차(uv)'].apply(lambda x: f"{x:.2f}")
-    display_df['실제 승리팀'] = display_df['실제 승리팀'].replace('Postponed', '취소됨').fillna('⏳ 대기 중')
+    show_df['적중 여부'] = show_df.apply(mark_ox, axis=1)
+    show_df['예상 격차(uv)'] = show_df['예상 격차(uv)'].apply(lambda x: f"{x:.2f}")
+    show_df['실제 승리팀'] = show_df['실제 승리팀'].replace('Postponed', '취소됨').fillna('⏳ 대기 중')
 
-    st.dataframe(display_df, hide_index=True, use_container_width=True)
+    st.dataframe(show_df, hide_index=True, use_container_width=True)
 
 if st.button("데이터 새로고침"):
     st.rerun()
