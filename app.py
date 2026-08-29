@@ -7,7 +7,7 @@ import os
 import requests
 
 # -----------------------------------------------------------------------------
-# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 포지션별 정밀 스냅 가중치 11.00 WUV Engine)
+# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 3-Tier Depth WUV Engine)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="🏈 NFL AI 승부예측", page_icon="🏈", layout="wide")
 
@@ -29,37 +29,37 @@ TRI_TO_KOR = {
 }
 
 TEAMS_DATA = {
-    "캔ザ스시티 치프스": {"eng": "Kansas City Chiefs", "tri": "KC", "qb": {"epa_play": 0.28, "cpoe": 4.8, "rating": 104.5}, "offense": {"pbwr": 76.0, "yards_per_game": 385.0}, "defense": {"press_rate": 36.0, "pts_per_drive": 1.65}, "kicker": {"fg_50_pct": 89.0}},
     "볼티모어 레이븐스": {"eng": "Baltimore Ravens", "tri": "BAL", "qb": {"epa_play": 0.30, "cpoe": 5.2, "rating": 106.0}, "offense": {"pbwr": 75.0, "yards_per_game": 395.0}, "defense": {"press_rate": 34.0, "pts_per_drive": 1.70}, "kicker": {"fg_50_pct": 92.0}},
+    "캔ザ스시티 치프스": {"eng": "Kansas City Chiefs", "tri": "KC", "qb": {"epa_play": 0.28, "cpoe": 4.8, "rating": 104.5}, "offense": {"pbwr": 76.0, "yards_per_game": 385.0}, "defense": {"press_rate": 36.0, "pts_per_drive": 1.65}, "kicker": {"fg_50_pct": 89.0}},
     "샌프란시스코 49어스": {"eng": "San Francisco 49ers", "tri": "SF", "qb": {"epa_play": 0.25, "cpoe": 3.8, "rating": 101.5}, "offense": {"pbwr": 74.0, "yards_per_game": 390.0}, "defense": {"press_rate": 34.0, "pts_per_drive": 1.70}, "kicker": {"fg_50_pct": 86.0}},
     "버팔로 빌스": {"eng": "Buffalo Bills", "tri": "BUF", "qb": {"epa_play": 0.26, "cpoe": 4.2, "rating": 102.8}, "offense": {"pbwr": 72.0, "yards_per_game": 378.0}, "defense": {"press_rate": 33.0, "pts_per_drive": 1.75}, "kicker": {"fg_50_pct": 88.0}},
     "디트로이트 라이온스": {"eng": "Detroit Lions", "tri": "DET", "qb": {"epa_play": 0.24, "cpoe": 4.0, "rating": 100.2}, "offense": {"pbwr": 77.0, "yards_per_game": 392.0}, "defense": {"press_rate": 33.0, "pts_per_drive": 1.90}, "kicker": {"fg_50_pct": 85.0}},
     "필라델피아 이글스": {"eng": "Philadelphia Eagles", "tri": "PHI", "qb": {"epa_play": 0.22, "cpoe": 3.2, "rating": 98.5}, "offense": {"pbwr": 78.0, "yards_per_game": 382.0}, "defense": {"press_rate": 33.0, "pts_per_drive": 1.80}, "kicker": {"fg_50_pct": 87.0}},
     "달라스 카우보이스": {"eng": "Dallas Cowboys", "tri": "DAL", "qb": {"epa_play": 0.23, "cpoe": 3.6, "rating": 99.0}, "offense": {"pbwr": 71.0, "yards_per_game": 370.0}, "defense": {"press_rate": 35.0, "pts_per_drive": 1.95}, "kicker": {"fg_50_pct": 91.0}},
     "휴스턴 텍산스": {"eng": "Houston Texans", "tri": "HOU", "qb": {"epa_play": 0.23, "cpoe": 3.5, "rating": 99.8}, "offense": {"pbwr": 70.0, "yards_per_game": 365.0}, "defense": {"press_rate": 33.0, "pts_per_drive": 1.90}, "kicker": {"fg_50_pct": 88.0}},
-    "신시내티 벵갈스": {"eng": "Cincinnati Bengals", "tri": "CIN", "qb": {"epa_play": 0.27, "cpoe": 4.5, "rating": 103.2}, "offense": {"pbwr": 66.0, "yards_per_game": 375.0}, "defense": {"press_rate": 29.0, "pts_per_drive": 2.10}, "kicker": {"fg_50_pct": 86.0}},
-    "그린베이 패커스": {"eng": "Green Bay Packers", "tri": "GB", "qb": {"epa_play": 0.21, "cpoe": 2.8, "rating": 97.2}, "offense": {"pbwr": 73.0, "yards_per_game": 362.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 1.95}, "kicker": {"fg_50_pct": 83.0}},
-    "마이애미 돌핀스": {"eng": "Miami Dolphins", "tri": "MIA", "qb": {"epa_play": 0.20, "cpoe": 3.0, "rating": 96.5}, "offense": {"pbwr": 68.0, "yards_per_game": 372.0}, "defense": {"press_rate": 28.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 85.0}},
-    "탬파베이 버커니어스": {"eng": "Tampa Bay Buccaneers", "tri": "TB", "qb": {"epa_play": 0.19, "cpoe": 2.5, "rating": 95.8}, "offense": {"pbwr": 69.0, "yards_per_game": 355.0}, "defense": {"press_rate": 30.0, "pts_per_drive": 2.00}, "kicker": {"fg_50_pct": 88.0}},
-    "로스앤젤레스 램스": {"eng": "Los Angeles Rams", "tri": "LAR", "qb": {"epa_play": 0.21, "cpoe": 2.9, "rating": 97.5}, "offense": {"pbwr": 70.0, "yards_per_game": 360.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 2.00}, "kicker": {"fg_50_pct": 83.0}},
-    "로스앤젤레스 차저스": {"eng": "Los Angeles Chargers", "tri": "LAC", "qb": {"epa_play": 0.22, "cpoe": 3.1, "rating": 98.0}, "offense": {"pbwr": 69.0, "yards_per_game": 348.0}, "defense": {"press_rate": 32.0, "pts_per_drive": 1.85}, "kicker": {"fg_50_pct": 87.0}},
-    "애틀랜타 팰컨스": {"eng": "Atlanta Falcons", "tri": "ATL", "qb": {"epa_play": 0.18, "cpoe": 2.2, "rating": 94.5}, "offense": {"pbwr": 71.0, "yards_per_game": 352.0}, "defense": {"press_rate": 26.0, "pts_per_drive": 2.10}, "kicker": {"fg_50_pct": 89.0}},
-    "피츠버그 스틸러스": {"eng": "Pittsburgh Steelers", "tri": "PIT", "qb": {"epa_play": 0.17, "cpoe": 2.0, "rating": 93.8}, "offense": {"pbwr": 62.0, "yards_per_game": 330.0}, "defense": {"press_rate": 37.0, "pts_per_drive": 1.75}, "kicker": {"fg_50_pct": 90.0}},
-    "클리블랜드 브라운스": {"eng": "Cleveland Browns", "tri": "CLE", "qb": {"epa_play": 0.12, "cpoe": 0.5, "rating": 88.0}, "offense": {"pbwr": 64.0, "yards_per_game": 325.0}, "defense": {"press_rate": 36.0, "pts_per_drive": 1.85}, "kicker": {"fg_50_pct": 85.0}},
-    "뉴욕 제츠": {"eng": "New York Jets", "tri": "NYJ", "qb": {"epa_play": 0.20, "cpoe": 2.8, "rating": 96.0}, "offense": {"pbwr": 65.0, "yards_per_game": 340.0}, "defense": {"press_rate": 35.0, "pts_per_drive": 1.80}, "kicker": {"fg_50_pct": 84.0}},
     "미네소타 바이킹스": {"eng": "Minnesota Vikings", "tri": "MIN", "qb": {"epa_play": 0.19, "cpoe": 2.4, "rating": 95.0}, "offense": {"pbwr": 68.0, "yards_per_game": 348.0}, "defense": {"press_rate": 37.0, "pts_per_drive": 1.80}, "kicker": {"fg_50_pct": 86.0}},
+    "신시내티 벵갈스": {"eng": "Cincinnati Bengals", "tri": "CIN", "qb": {"epa_play": 0.27, "cpoe": 4.5, "rating": 103.2}, "offense": {"pbwr": 66.0, "yards_per_game": 375.0}, "defense": {"press_rate": 29.0, "pts_per_drive": 2.10}, "kicker": {"fg_50_pct": 86.0}},
+    "로스앤젤레스 차저스": {"eng": "Los Angeles Chargers", "tri": "LAC", "qb": {"epa_play": 0.22, "cpoe": 3.1, "rating": 98.0}, "offense": {"pbwr": 69.0, "yards_per_game": 348.0}, "defense": {"press_rate": 32.0, "pts_per_drive": 1.85}, "kicker": {"fg_50_pct": 87.0}},
+    "그린베이 패커스": {"eng": "Green Bay Packers", "tri": "GB", "qb": {"epa_play": 0.21, "cpoe": 2.8, "rating": 97.2}, "offense": {"pbwr": 73.0, "yards_per_game": 362.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 1.95}, "kicker": {"fg_50_pct": 83.0}},
+    "뉴욕 제츠": {"eng": "New York Jets", "tri": "NYJ", "qb": {"epa_play": 0.20, "cpoe": 2.8, "rating": 96.0}, "offense": {"pbwr": 65.0, "yards_per_game": 340.0}, "defense": {"press_rate": 35.0, "pts_per_drive": 1.80}, "kicker": {"fg_50_pct": 84.0}},
+    "피츠버그 스틸러스": {"eng": "Pittsburgh Steelers", "tri": "PIT", "qb": {"epa_play": 0.17, "cpoe": 2.0, "rating": 93.8}, "offense": {"pbwr": 62.0, "yards_per_game": 330.0}, "defense": {"press_rate": 37.0, "pts_per_drive": 1.75}, "kicker": {"fg_50_pct": 90.0}},
+    "로스앤젤레스 램스": {"eng": "Los Angeles Rams", "tri": "LAR", "qb": {"epa_play": 0.21, "cpoe": 2.9, "rating": 97.5}, "offense": {"pbwr": 70.0, "yards_per_game": 360.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 2.00}, "kicker": {"fg_50_pct": 83.0}},
+    "탬파베이 버커니어스": {"eng": "Tampa Bay Buccaneers", "tri": "TB", "qb": {"epa_play": 0.19, "cpoe": 2.5, "rating": 95.8}, "offense": {"pbwr": 69.0, "yards_per_game": 355.0}, "defense": {"press_rate": 30.0, "pts_per_drive": 2.00}, "kicker": {"fg_50_pct": 88.0}},
+    "마이애미 돌핀스": {"eng": "Miami Dolphins", "tri": "MIA", "qb": {"epa_play": 0.20, "cpoe": 3.0, "rating": 96.5}, "offense": {"pbwr": 68.0, "yards_per_game": 372.0}, "defense": {"press_rate": 28.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 85.0}},
+    "시애틀 시호크스": {"eng": "Seattle Seahawks", "tri": "SEA", "qb": {"epa_play": 0.19, "cpoe": 2.5, "rating": 95.5}, "offense": {"pbwr": 65.0, "yards_per_game": 345.0}, "defense": {"press_rate": 32.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 87.0}},
+    "덴버 브롱코스": {"eng": "Denver Broncos", "tri": "DEN", "qb": {"epa_play": 0.16, "cpoe": 1.6, "rating": 91.0}, "offense": {"pbwr": 67.0, "yards_per_game": 330.0}, "defense": {"press_rate": 33.0, "pts_per_drive": 1.95}, "kicker": {"fg_50_pct": 86.0}},
+    "워싱턴 커맨더스": {"eng": "Washington Commanders", "tri": "WAS", "qb": {"epa_play": 0.21, "cpoe": 3.0, "rating": 97.0}, "offense": {"pbwr": 68.0, "yards_per_game": 355.0}, "defense": {"press_rate": 27.0, "pts_per_drive": 2.15}, "kicker": {"fg_50_pct": 84.0}},
+    "클리블랜드 브라운스": {"eng": "Cleveland Browns", "tri": "CLE", "qb": {"epa_play": 0.12, "cpoe": 0.5, "rating": 88.0}, "offense": {"pbwr": 64.0, "yards_per_game": 325.0}, "defense": {"press_rate": 36.0, "pts_per_drive": 1.85}, "kicker": {"fg_50_pct": 85.0}},
+    "애틀랜타 팰컨스": {"eng": "Atlanta Falcons", "tri": "ATL", "qb": {"epa_play": 0.18, "cpoe": 2.2, "rating": 94.5}, "offense": {"pbwr": 71.0, "yards_per_game": 352.0}, "defense": {"press_rate": 26.0, "pts_per_drive": 2.10}, "kicker": {"fg_50_pct": 89.0}},
+    "뉴올리언스 세인츠": {"eng": "New Orleans Saints", "tri": "NO", "qb": {"epa_play": 0.17, "cpoe": 2.0, "rating": 93.0}, "offense": {"pbwr": 64.0, "yards_per_game": 338.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 86.0}},
+    "인디애나폴리스 콜츠": {"eng": "Indianapolis Colts", "tri": "IND", "qb": {"epa_play": 0.17, "cpoe": 1.8, "rating": 92.0}, "offense": {"pbwr": 72.0, "yards_per_game": 350.0}, "defense": {"press_rate": 28.0, "pts_per_drive": 2.15}, "kicker": {"fg_50_pct": 84.0}},
     "시카고 베어스": {"eng": "Chicago Bears", "tri": "CHI", "qb": {"epa_play": 0.16, "cpoe": 1.5, "rating": 91.5}, "offense": {"pbwr": 63.0, "yards_per_game": 335.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 87.0}},
     "잭슨빌 재규어스": {"eng": "Jacksonville Jaguars", "tri": "JAX", "qb": {"epa_play": 0.18, "cpoe": 2.0, "rating": 94.0}, "offense": {"pbwr": 63.0, "yards_per_game": 342.0}, "defense": {"press_rate": 29.0, "pts_per_drive": 2.20}, "kicker": {"fg_50_pct": 85.0}},
-    "인디애나폴리스 콜츠": {"eng": "Indianapolis Colts", "tri": "IND", "qb": {"epa_play": 0.17, "cpoe": 1.8, "rating": 92.0}, "offense": {"pbwr": 72.0, "yards_per_game": 350.0}, "defense": {"press_rate": 28.0, "pts_per_drive": 2.15}, "kicker": {"fg_50_pct": 84.0}},
-    "시애틀 시호크스": {"eng": "Seattle Seahawks", "tri": "SEA", "qb": {"epa_play": 0.19, "cpoe": 2.5, "rating": 95.5}, "offense": {"pbwr": 65.0, "yards_per_game": 345.0}, "defense": {"press_rate": 32.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 87.0}},
-    "뉴올리언스 세인츠": {"eng": "New Orleans Saints", "tri": "NO", "qb": {"epa_play": 0.17, "cpoe": 2.0, "rating": 93.0}, "offense": {"pbwr": 64.0, "yards_per_game": 338.0}, "defense": {"press_rate": 31.0, "pts_per_drive": 2.05}, "kicker": {"fg_50_pct": 86.0}},
-    "덴버 브롱코스": {"eng": "Denver Broncos", "tri": "DEN", "qb": {"epa_play": 0.16, "cpoe": 1.6, "rating": 91.0}, "offense": {"pbwr": 67.0, "yards_per_game": 330.0}, "defense": {"press_rate": 33.0, "pts_per_drive": 1.95}, "kicker": {"fg_50_pct": 86.0}},
-    "라스베이거스 레이더스": {"eng": "Las Vegas Raiders", "tri": "LV", "qb": {"epa_play": 0.13, "cpoe": 0.8, "rating": 89.0}, "offense": {"pbwr": 61.0, "yards_per_game": 320.0}, "defense": {"press_rate": 34.0, "pts_per_drive": 2.25}, "kicker": {"fg_50_pct": 88.0}},
     "애리조나 카디널스": {"eng": "Arizona Cardinals", "tri": "ARI", "qb": {"epa_play": 0.18, "cpoe": 2.2, "rating": 94.0}, "offense": {"pbwr": 66.0, "yards_per_game": 340.0}, "defense": {"press_rate": 27.0, "pts_per_drive": 2.25}, "kicker": {"fg_50_pct": 88.0}},
-    "워싱턴 커맨더스": {"eng": "Washington Commanders", "tri": "WAS", "qb": {"epa_play": 0.21, "cpoe": 3.0, "rating": 97.0}, "offense": {"pbwr": 68.0, "yards_per_game": 355.0}, "defense": {"press_rate": 27.0, "pts_per_drive": 2.15}, "kicker": {"fg_50_pct": 84.0}},
-    "뉴잉글랜드 패트리어츠": {"eng": "New England Patriots", "tri": "NE", "qb": {"epa_play": 0.14, "cpoe": 1.0, "rating": 89.5}, "offense": {"pbwr": 58.0, "yards_per_game": 305.0}, "defense": {"press_rate": 27.0, "pts_per_drive": 2.20}, "kicker": {"fg_50_pct": 82.0}},
-    "뉴욕 자이언츠": {"eng": "New York Giants", "tri": "NYG", "qb": {"epa_play": 0.12, "cpoe": 0.5, "rating": 87.5}, "offense": {"pbwr": 57.0, "yards_per_game": 300.0}, "defense": {"press_rate": 32.0, "pts_per_drive": 2.35}, "kicker": {"fg_50_pct": 83.0}},
+    "라스베이거스 레이더스": {"eng": "Las Vegas Raiders", "tri": "LV", "qb": {"epa_play": 0.13, "cpoe": 0.8, "rating": 89.0}, "offense": {"pbwr": 61.0, "yards_per_game": 320.0}, "defense": {"press_rate": 34.0, "pts_per_drive": 2.25}, "kicker": {"fg_50_pct": 88.0}},
     "테네시 타이탄스": {"eng": "Tennessee Titans", "tri": "TEN", "qb": {"epa_play": 0.13, "cpoe": 0.7, "rating": 88.5}, "offense": {"pbwr": 59.0, "yards_per_game": 310.0}, "defense": {"press_rate": 30.0, "pts_per_drive": 2.30}, "kicker": {"fg_50_pct": 82.0}},
+    "뉴욕 자이언츠": {"eng": "New York Giants", "tri": "NYG", "qb": {"epa_play": 0.12, "cpoe": 0.5, "rating": 87.5}, "offense": {"pbwr": 57.0, "yards_per_game": 300.0}, "defense": {"press_rate": 32.0, "pts_per_drive": 2.35}, "kicker": {"fg_50_pct": 83.0}},
+    "뉴잉글랜드 패트리어츠": {"eng": "New England Patriots", "tri": "NE", "qb": {"epa_play": 0.14, "cpoe": 1.0, "rating": 89.5}, "offense": {"pbwr": 58.0, "yards_per_game": 305.0}, "defense": {"press_rate": 27.0, "pts_per_drive": 2.20}, "kicker": {"fg_50_pct": 82.0}},
     "캐롤라이나 팬서스": {"eng": "Carolina Panthers", "tri": "CAR", "qb": {"epa_play": 0.10, "cpoe": -0.5, "rating": 85.0}, "offense": {"pbwr": 56.0, "yards_per_game": 290.0}, "defense": {"press_rate": 25.0, "pts_per_drive": 2.45}, "kicker": {"fg_50_pct": 84.0}}
 }
 
@@ -70,25 +70,25 @@ def calculate_team_wuv(team_name):
         team_info = TEAMS_DATA[team_name]
         q, o, d, k = team_info["qb"], team_info["offense"], team_info["defense"], team_info["kicker"]
         
-        # 포지션별 정밀 스냅 가중치 모델 (Position-Specific Snap Weighted Model)
-        # 1. QB WUV = (주전 4.47 x 0.95) + (백업 3.47 x 0.05)
+        # 포지션별 정밀 스냅 가중치 모델 (Position-Specific Snap Weighted WUV Engine)
+        # 1. QB WUV = (주전 95% x 4.47) + (백업 5% x 3.47)
         qb_starter_wuv = round(3.30 * (1.00 + 0.15 * ((q["epa_play"] - 0.18) / 0.10) + 0.10 * ((q["cpoe"] - 2.2) / 2.5) + 0.10 * ((q["rating"] - 94.5) / 10.0)), 2)
         qb_backup_wuv = round(3.30 * 1.050, 2)
         qb_wuv = round((qb_starter_wuv * 0.95) + (qb_backup_wuv * 0.05), 2)
         
-        # 2. OFF WUV = (주전 3.69 x 0.75) + (핵심 벤치 3.03 x 0.20) + (리저브 2.61 x 0.05)
+        # 2. OFF WUV = (주전 75% x 3.69) + (핵심 벤치 20% x 3.03) + (리저브 5% x 2.61)
         off_starter_wuv = round(2.75 * (1.00 + 0.15 * ((o["pbwr"] - 67.0) / 8.0) + 0.15 * ((o["yards_per_game"] - 345.0) / 35.0)), 2)
         off_bench_wuv = round(2.75 * (1.00 + 0.08 * ((o["pbwr"] - 67.0) / 8.0)), 2)
         off_reserve_wuv = round(2.75 * 0.95, 2)
         off_wuv = round((off_starter_wuv * 0.75) + (off_bench_wuv * 0.20) + (off_reserve_wuv * 0.05), 2)
         
-        # 3. DEF WUV = (주전 5.52 x 0.70) + (핵심 벤치 4.60 x 0.25) + (리저브 3.85 x 0.05)
+        # 3. DEF WUV = (주전 70% x 5.52) + (핵심 벤치 25% x 4.60) + (리저브 5% x 3.85)
         def_starter_wuv = round(4.18 * (1.00 + 0.15 * ((d["press_rate"] - 31.0) / 5.0) + 0.15 * ((2.05 - d["pts_per_drive"]) / 0.35)), 2)
         def_bench_wuv = round(4.18 * (1.00 + 0.08 * ((d["press_rate"] - 31.0) / 5.0)), 2)
         def_reserve_wuv = round(4.18 * 0.92, 2)
         def_wuv = round((def_starter_wuv * 0.70) + (def_bench_wuv * 0.25) + (def_reserve_wuv * 0.05), 2)
         
-        # 4. K WUV = (주전 0.84 x 1.00)
+        # 4. K WUV = (주전 100% x 0.84)
         k_starter_wuv = round(0.77 * (1.00 + 0.15 * ((k["fg_50_pct"] - 86.0) / 5.0)), 2)
         k_wuv = round(k_starter_wuv * 1.00, 2)
         
@@ -340,7 +340,7 @@ if not filtered_df.empty:
     else:
         col3.metric("주차 적중률", "-")
 
-    # 팀명(WUV수치) 포맷팅 예시) 캔ザ스시티 치프스(13.97 WUV)
+    # 팀명(WUV수치) 포맷팅 예시) 볼티모어 레이븐스(13.97 WUV)
     display_df = filtered_df.copy()
     display_df['home_team_fmt'] = display_df.apply(
         lambda r: f"{r['home_team']}({r['home_uv']:.2f} WUV)" if pd.notna(r.get('home_uv')) else r['home_team'], axis=1
