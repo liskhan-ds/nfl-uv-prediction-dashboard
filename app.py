@@ -102,18 +102,7 @@ def predict_matchup(home_team, away_team):
     predicted_winner = home_team if h_wuv >= a_wuv else away_team
     return predicted_winner, gap, h_wuv, a_wuv
 
-def load_data():
-    if os.path.exists(DB_PATH):
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            query = "SELECT * FROM predictions ORDER BY week ASC, date ASC, rowid ASC"
-            df_db = pd.read_sql(query, conn)
-            conn.close()
-            if not df_db.empty:
-                return df_db
-        except Exception:
-            pass
-
+def fetch_espn_live_data():
     records = []
     for w in range(1, 19):
         try:
@@ -160,7 +149,50 @@ def load_data():
                 })
         except Exception:
             continue
-    return pd.DataFrame(records)
+    df_fresh = pd.DataFrame(records)
+    if not df_fresh.empty:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('DROP TABLE IF EXISTS predictions')
+            c.execute('''
+                CREATE TABLE predictions (
+                    week INTEGER,
+                    week_name TEXT,
+                    date TEXT,
+                    home_team TEXT,
+                    visit_team TEXT,
+                    predicted_winner TEXT,
+                    predicted_gap REAL,
+                    home_uv REAL,
+                    visit_uv REAL,
+                    actual_winner TEXT,
+                    is_correct INTEGER
+                )
+            ''')
+            for _, r in df_fresh.iterrows():
+                c.execute('INSERT INTO predictions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                          (r['week'], r['week_name'], r['date'], r['home_team'], r['visit_team'],
+                           r['predicted_winner'], r['predicted_gap'], r['home_uv'], r['visit_uv'],
+                           r['actual_winner'], r['is_correct']))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+    return df_fresh
+
+def load_data():
+    if os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            query = "SELECT * FROM predictions ORDER BY week ASC, date ASC, rowid ASC"
+            df_db = pd.read_sql(query, conn)
+            conn.close()
+            if not df_db.empty:
+                return df_db
+        except Exception:
+            pass
+    return fetch_espn_live_data()
 
 df = load_data()
 
@@ -370,7 +402,9 @@ if not filtered_df.empty:
 
     st.dataframe(show_df, hide_index=True, use_container_width=True)
 
-if st.button("데이터 새로고침"):
+if st.button("🔄 데이터 새로고침 (ESPN 최신 경기결과 동기화)"):
+    with st.spinner("ESPN 최신 경기 스코어 동기화 중..."):
+        fetch_espn_live_data()
     st.rerun()
 
 # -----------------------------------------------------------------------------
