@@ -189,7 +189,6 @@ st.divider()
 
 # 메인 타이틀
 st.title("🏈 NFL AI 승부예측(by WUV predictor)")
-st.caption("2026-27 NFL 정규시즌 (Week 1 ~ Week 18) | 11.0 WUV 기준 (QB 3.30 UV + 공격 2.75 UV + 수비 4.18 UV + 키커 0.77 UV) | 홈 어드밴티지(+0.25 UV)")
 
 if df.empty:
     st.warning("⚠️ 아직 예측 데이터가 없거나 DB를 불러올 수 없습니다.")
