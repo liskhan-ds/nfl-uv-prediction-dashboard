@@ -7,7 +7,7 @@ import os
 import requests
 
 # -----------------------------------------------------------------------------
-# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 11.00 WUV 표준팀 앵커 스케일)
+# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 3-Tier Depth Weighted 11.00 WUV Engine)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="🏈 NFL AI 승부예측", page_icon="🏈", layout="wide")
 
@@ -70,26 +70,34 @@ def calculate_team_wuv(team_name):
         team_info = TEAMS_DATA[team_name]
         q, o, d, k = team_info["qb"], team_info["offense"], team_info["defense"], team_info["kicker"]
         
-        # 11.00 WUV 표준 앵커 산출 로직
-        # 표준팀 Baseline: QB 3.30 UV (Standard QB = 3.30)
-        qb_mult = 1.00 + 0.15 * ((q["epa_play"] - 0.18) / 0.10) + \
-                         0.10 * ((q["cpoe"] - 2.2) / 2.5) + \
-                         0.10 * ((q["rating"] - 94.5) / 10.0)
-        qb_uv = round(3.30 * qb_mult, 2)
+        # 3-Tier Depth Weight Model (Tier 1 주전 75%, Tier 2 핵심 벤치 20%, Tier 3 리저브 5%)
+        # 1. QB Ratio (Tier 1 주전 95%, Tier 2 백업 5%)
+        qb_t1 = 1.00 + 0.15 * ((q["epa_play"] - 0.18) / 0.10) + \
+                       0.10 * ((q["cpoe"] - 2.2) / 2.5) + \
+                       0.10 * ((q["rating"] - 94.5) / 10.0)
+        qb_t2 = 1.050 # Backup QB Baseline
+        qb_ratio = 0.95 * qb_t1 + 0.05 * qb_t2
+        qb_uv = round(3.30 * qb_ratio, 2)
         
-        # 표준팀 Baseline: OFF 2.75 UV (Standard Offense = 2.75)
-        off_mult = 1.00 + 0.15 * ((o["pbwr"] - 67.0) / 8.0) + \
-                          0.15 * ((o["yards_per_game"] - 345.0) / 35.0)
-        off_uv = round(2.75 * off_mult, 2)
+        # 2. OFF Ratio (Tier 1 주전 75%, Tier 2 핵심 벤치 20%, Tier 3 리저브 5%)
+        off_t1 = 1.00 + 0.15 * ((o["pbwr"] - 67.0) / 8.0) + \
+                        0.15 * ((o["yards_per_game"] - 345.0) / 35.0)
+        off_t2 = 1.00 + 0.08 * ((o["pbwr"] - 67.0) / 8.0)
+        off_t3 = 0.95
+        off_ratio = 0.75 * off_t1 + 0.20 * off_t2 + 0.05 * off_t3
+        off_uv = round(2.75 * off_ratio, 2)
         
-        # 표준팀 Baseline: DEF 4.18 UV (Standard Defense = 4.18)
-        def_mult = 1.00 + 0.15 * ((d["press_rate"] - 31.0) / 5.0) + \
-                          0.15 * ((2.05 - d["pts_per_drive"]) / 0.35)
-        def_uv = round(4.18 * def_mult, 2)
+        # 3. DEF Ratio (Tier 1 주전 75%, Tier 2 핵심 벤치 20%, Tier 3 리저브 5%)
+        def_t1 = 1.00 + 0.15 * ((d["press_rate"] - 31.0) / 5.0) + \
+                        0.15 * ((2.05 - d["pts_per_drive"]) / 0.35)
+        def_t2 = 1.00 + 0.08 * ((d["press_rate"] - 31.0) / 5.0)
+        def_t3 = 0.92
+        def_ratio = 0.75 * def_t1 + 0.20 * def_t2 + 0.05 * def_t3
+        def_uv = round(4.18 * def_ratio, 2)
         
-        # 표준팀 Baseline: K 0.77 UV (Standard Kicker = 0.77)
-        k_mult = 1.00 + 0.15 * ((k["fg_50_pct"] - 86.0) / 5.0)
-        k_uv = round(0.77 * k_mult, 2)
+        # 4. Kicker Ratio (Primary Kicker 100%)
+        k_ratio = 1.00 + 0.15 * ((k["fg_50_pct"] - 86.0) / 5.0)
+        k_uv = round(0.77 * k_ratio, 2)
         
         total_wuv = round(qb_uv + off_uv + def_uv + k_uv, 2)
         return total_wuv
@@ -339,7 +347,7 @@ if not filtered_df.empty:
     else:
         col3.metric("주차 적중률", "-")
 
-    # 팀명(WUV수치) 포맷팅 예시) 캔ザ스시티 치프스(14.52 WUV)
+    # 팀명(WUV수치) 포맷팅 예시) 캔ザ스시티 치프스(14.00 WUV)
     display_df = filtered_df.copy()
     display_df['home_team_fmt'] = display_df.apply(
         lambda r: f"{r['home_team']}({r['home_uv']:.2f} WUV)" if pd.notna(r.get('home_uv')) else r['home_team'], axis=1
