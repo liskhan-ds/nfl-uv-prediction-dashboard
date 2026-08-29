@@ -5,10 +5,9 @@ import numpy as np
 import altair as alt
 import os
 import requests
-from datetime import datetime
 
 # -----------------------------------------------------------------------------
-# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 11.0 WUV 스케일 보정)
+# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 11.00 WUV 최상위 기준 스케일)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="🏈 NFL AI 승부예측", page_icon="🏈", layout="wide")
 
@@ -64,36 +63,39 @@ TEAMS_DATA = {
     "캐롤라이나 팬서스": {"eng": "Carolina Panthers", "tri": "CAR", "qb": {"epa_play": 0.10, "cpoe": -0.5, "rating": 85.0}, "offense": {"pbwr": 56.0, "yards_per_game": 290.0}, "defense": {"press_rate": 25.0, "pts_per_drive": 2.45}, "kicker": {"fg_50_pct": 84.0}}
 }
 
+# 로우 WUV 스케일 정규화 (11.00 WUV 만점 스케일)
+RAW_MIN = 8.34
+RAW_MAX = 10.42
+
 def calculate_team_wuv(team_name):
     if team_name not in TEAMS_DATA:
         qb_uv, off_uv, def_uv, k_uv = 2.85, 2.30, 3.45, 0.62
+        raw_wuv = 9.22
     else:
         team_info = TEAMS_DATA[team_name]
         q, o, d, k = team_info["qb"], team_info["offense"], team_info["defense"], team_info["kicker"]
         
-        # NFL 선발 11인 유닛 스케일 보정 (11.0 WUV 만점 기준)
-        # QB max 3.30 WUV (baseline ~2.35, range [2.35, 3.28])
         q_score = 0.40 * max(0.0, min(1.0, (q["epa_play"] + 0.05) / 0.35)) + \
                   0.30 * max(0.0, min(1.0, (q["cpoe"] + 3.0) / 9.0)) + \
                   0.30 * max(0.0, min(1.0, (q["rating"] - 80.0) / 28.0))
-        qb_uv = round(2.35 + 0.95 * q_score, 2)
+        qb_uv = 2.35 + 0.95 * q_score
         
-        # OFF max 2.75 WUV (baseline ~1.90, range [1.90, 2.72])
         o_score = 0.50 * max(0.0, min(1.0, (o["pbwr"] - 52.0) / 28.0)) + \
                   0.50 * max(0.0, min(1.0, (o["yards_per_game"] - 280.0) / 120.0))
-        off_uv = round(1.90 + 0.83 * o_score, 2)
+        off_uv = 1.90 + 0.83 * o_score
         
-        # DEF max 4.18 WUV (baseline ~2.90, range [2.90, 4.12])
         d_score = 0.50 * max(0.0, min(1.0, (d["press_rate"] - 22.0) / 18.0)) + \
                   0.50 * max(0.0, min(1.0, (2.60 - d["pts_per_drive"]) / 1.10))
-        def_uv = round(2.90 + 1.22 * d_score, 2)
+        def_uv = 2.90 + 1.22 * d_score
         
-        # K max 0.77 WUV (baseline ~0.52, range [0.52, 0.76])
         k_score = max(0.0, min(1.0, (k["fg_50_pct"] - 75.0) / 20.0))
-        k_uv = round(0.52 + 0.24 * k_score, 2)
+        k_uv = 0.52 + 0.24 * k_score
         
-    total_wuv = round(qb_uv + off_uv + def_uv + k_uv, 2)
-    return total_wuv
+        raw_wuv = qb_uv + off_uv + def_uv + k_uv
+        
+    # 리그 1위팀을 11.00 WUV 만점으로 정밀 스케일링
+    scaled_wuv = 8.80 + (raw_wuv - RAW_MIN) / (RAW_MAX - RAW_MIN) * (11.00 - 8.80)
+    return round(scaled_wuv, 2)
 
 def predict_matchup(home_team, away_team):
     h_wuv = round(calculate_team_wuv(home_team) + 0.25, 2) # 홈 어드밴티지 +0.25
@@ -340,7 +342,7 @@ if not filtered_df.empty:
     else:
         col3.metric("주차 적중률", "-")
 
-    # 팀명(WUV수치) 포맷팅 예시) 샌프란시스코 49어스(10.18 WUV)
+    # 팀명(WUV수치) 포맷팅 예시) 볼티모어 레이븐스(11.00 WUV)
     display_df = filtered_df.copy()
     display_df['home_team_fmt'] = display_df.apply(
         lambda r: f"{r['home_team']}({r['home_uv']:.2f} WUV)" if pd.notna(r.get('home_uv')) else r['home_team'], axis=1
