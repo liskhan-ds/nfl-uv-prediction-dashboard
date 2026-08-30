@@ -141,6 +141,8 @@ def fetch_espn_live_data():
                     if hs > aws: act = h_name
                     elif aws > hs: act = a_name
                     else: act = "Tie"
+                elif status_type in ["STATUS_POSTPONED", "STATUS_CANCELED"]:
+                    act = "Postponed"
                     
                 is_corr = 1 if (act and act != "Postponed" and act != "Tie" and pw == act) else (0 if act else None)
                 
