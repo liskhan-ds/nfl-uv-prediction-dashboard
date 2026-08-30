@@ -7,7 +7,7 @@ import os
 import requests
 
 # -----------------------------------------------------------------------------
-# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 3-Tier Depth WUV Engine)
+# 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 Min/Max Cap Clipping WUV Engine)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="🏈 NFL AI 승부예측", page_icon="🏈", layout="wide")
 
@@ -70,27 +70,37 @@ def calculate_team_wuv(team_name):
         team_info = TEAMS_DATA[team_name]
         q, o, d, k = team_info["qb"], team_info["offense"], team_info["defense"], team_info["kicker"]
         
-        # 포지션별 정밀 스냅 가중치 모델 (Position-Specific Snap Weighted WUV Engine)
-        # 1. QB WUV = (주전 95% x 4.47) + (백업 5% x 3.47)
-        qb_starter_wuv = round(3.30 * (1.00 + 0.15 * ((q["epa_play"] - 0.18) / 0.10) + 0.10 * ((q["cpoe"] - 2.2) / 2.5) + 0.10 * ((q["rating"] - 94.5) / 10.0)), 2)
-        qb_backup_wuv = round(3.30 * 1.050, 2)
-        qb_wuv = round((qb_starter_wuv * 0.95) + (qb_backup_wuv * 0.05), 2)
+        # [유닛별 UV 상하한선 클리핑 (Min/Max Cap Clipping Engine)]
+        # 1. QB UV: min(max(raw_qb_uv, 0.30), 2.20)
+        raw_qb_starter = 1.00 + 0.15 * ((q["epa_play"] - 0.18) / 0.10) + 0.10 * ((q["cpoe"] - 2.2) / 2.5) + 0.10 * ((q["rating"] - 94.5) / 10.0)
+        qb_starter = min(max(raw_qb_starter, 0.30), 2.20)
+        qb_backup = 1.050
+        qb_ratio = 0.95 * qb_starter + 0.05 * qb_backup
+        qb_wuv = round(3.30 * qb_ratio, 2)
         
-        # 2. OFF WUV = (주전 75% x 3.69) + (핵심 벤치 20% x 3.03) + (리저브 5% x 2.61)
-        off_starter_wuv = round(2.75 * (1.00 + 0.15 * ((o["pbwr"] - 67.0) / 8.0) + 0.15 * ((o["yards_per_game"] - 345.0) / 35.0)), 2)
-        off_bench_wuv = round(2.75 * (1.00 + 0.08 * ((o["pbwr"] - 67.0) / 8.0)), 2)
-        off_reserve_wuv = round(2.75 * 0.95, 2)
-        off_wuv = round((off_starter_wuv * 0.75) + (off_bench_wuv * 0.20) + (off_reserve_wuv * 0.05), 2)
+        # 2. Offense UV: min(max(raw_off_uv, 0.40), 1.80)
+        raw_off_starter = 1.00 + 0.15 * ((o["pbwr"] - 67.0) / 8.0) + 0.15 * ((o["yards_per_game"] - 345.0) / 35.0)
+        off_starter = min(max(raw_off_starter, 0.40), 1.80)
+        raw_off_bench = 1.00 + 0.08 * ((o["pbwr"] - 67.0) / 8.0)
+        off_bench = min(max(raw_off_bench, 0.40), 1.80)
+        off_reserve = 0.95
+        off_ratio = 0.75 * off_starter + 0.20 * off_bench + 0.05 * off_reserve
+        off_wuv = round(2.75 * off_ratio, 2)
         
-        # 3. DEF WUV = (주전 70% x 5.52) + (핵심 벤치 25% x 4.60) + (리저브 5% x 3.85)
-        def_starter_wuv = round(4.18 * (1.00 + 0.15 * ((d["press_rate"] - 31.0) / 5.0) + 0.15 * ((2.05 - d["pts_per_drive"]) / 0.35)), 2)
-        def_bench_wuv = round(4.18 * (1.00 + 0.08 * ((d["press_rate"] - 31.0) / 5.0)), 2)
-        def_reserve_wuv = round(4.18 * 0.92, 2)
-        def_wuv = round((def_starter_wuv * 0.70) + (def_bench_wuv * 0.25) + (def_reserve_wuv * 0.05), 2)
+        # 3. Defense UV: min(max(raw_def_uv, 0.40), 1.70)
+        raw_def_starter = 1.00 + 0.15 * ((d["press_rate"] - 31.0) / 5.0) + 0.15 * ((2.05 - d["pts_per_drive"]) / 0.35)
+        def_starter = min(max(raw_def_starter, 0.40), 1.70)
+        raw_def_bench = 1.00 + 0.08 * ((d["press_rate"] - 31.0) / 5.0)
+        def_bench = min(max(raw_def_bench, 0.40), 1.70)
+        def_reserve = 0.92
+        def_ratio = 0.70 * def_starter + 0.25 * def_bench + 0.05 * def_reserve
+        def_wuv = round(4.18 * def_ratio, 2)
         
-        # 4. K WUV = (주전 100% x 0.84)
-        k_starter_wuv = round(0.77 * (1.00 + 0.15 * ((k["fg_50_pct"] - 86.0) / 5.0)), 2)
-        k_wuv = round(k_starter_wuv * 1.00, 2)
+        # 4. Kicker UV: min(max(raw_kicker_uv, 0.30), 1.60)
+        raw_k_starter = 1.00 + 0.15 * ((k["fg_50_pct"] - 86.0) / 5.0)
+        k_starter = min(max(raw_k_starter, 0.30), 1.60)
+        k_ratio = k_starter * 1.00
+        k_wuv = round(0.77 * k_ratio, 2)
         
         total_wuv = round(qb_wuv + off_wuv + def_wuv + k_wuv, 2)
         return total_wuv
@@ -372,7 +382,7 @@ if not filtered_df.empty:
     else:
         col3.metric("주차 적중률", "-")
 
-    # 팀명(WUV수치) 포맷팅 예시) 볼티모어 레이븐스(13.97 WUV)
+    # 팀명(WUV수치) 포맷팅 예시) 볼티모어 레이븐스(13.98 WUV)
     display_df = filtered_df.copy()
     display_df['home_team_fmt'] = display_df.apply(
         lambda r: f"{r['home_team']}({r['home_uv']:.2f} WUV)" if pd.notna(r.get('home_uv')) else r['home_team'], axis=1
