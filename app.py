@@ -9,7 +9,7 @@ import requests
 # -----------------------------------------------------------------------------
 # 1. 설정 및 데이터 로드 (2026-27 NFL 정규시즌 Min/Max Cap Clipping WUV Engine)
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="🏈 NFL AI 승부예측", page_icon="🏈", layout="wide")
+st.set_page_config(page_title="NFL AI 승부예측", page_icon="🏈", layout="wide")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "nfl_data.db")
