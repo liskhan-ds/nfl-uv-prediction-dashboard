@@ -412,12 +412,7 @@ if not filtered_df.empty:
     show_df['예상 격차(uv)'] = show_df['예상 격차(uv)'].apply(lambda x: f"{x:.2f}")
     show_df['실제 승리팀'] = show_df['실제 승리팀'].replace('Postponed', '취소됨').fillna('⏳ 대기 중')
 
-    st.dataframe(show_df, hide_index=True, use_container_width=True)
-
-if st.button("🔄 데이터 새로고침 (ESPN 최신 경기결과 동기화)"):
-    with st.spinner("ESPN 최신 경기 스코어 동기화 중..."):
-        fetch_espn_live_data()
-    st.rerun()
+    st.dataframe(show_df, hide_index=True, use_container_width=True, height=600)
 
 # -----------------------------------------------------------------------------
 # 4. [최하단] 푸터 문구
