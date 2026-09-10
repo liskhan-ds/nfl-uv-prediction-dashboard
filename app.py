@@ -11,10 +11,12 @@ import requests
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="NFL AI Match Predictor", page_icon="🏈", layout="wide")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)
-
 from common_nav import render_common_nav
 render_common_nav("NFL")
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)
+
 
 )
 DB_PATH = os.path.join(BASE_DIR, "nfl_data.db")
