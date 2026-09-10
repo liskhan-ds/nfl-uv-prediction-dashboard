@@ -191,10 +191,8 @@ def load_data():
 
 df = load_data()
 
-from common_nav import render_common_nav
 
 # Top Navigation Bar
-render_common_nav("NFL")
 
 st.divider()
 
