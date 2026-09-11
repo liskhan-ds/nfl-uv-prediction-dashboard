@@ -20,4 +20,4 @@ def render_common_nav(current_league_code: str):
                 if is_current:
                     st.button(f"{label} (Active)", disabled=True, key=f"nav_btn_{item['code']}", use_container_width=True)
                 else:
-                    st.link_button(f"{label} ↗", item["url"], key=f"nav_link_{item['code']}", use_container_width=True)
+                    st.link_button(f"{label} ↗", item["url"], use_container_width=True)
