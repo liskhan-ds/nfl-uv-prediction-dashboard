@@ -197,7 +197,7 @@ def load_data():
                 return df_db
         except Exception:
             pass
-    return fetch_espn_live_data()
+    return pd.DataFrame()
 
 df = load_data()
 
